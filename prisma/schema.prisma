@@ -422,6 +422,8 @@ model Sale {
   createdBy   Int
   isLocked    Boolean   @default(false)
   status      String    @default("pending")
+  voidRequest Boolean   @default(false)
+  voidStatus  String?   @default("pending")
   product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
   client      Clients?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
   creator     SalesRep  @relation(fields: [createdBy], references: [id], onDelete: Cascade)
