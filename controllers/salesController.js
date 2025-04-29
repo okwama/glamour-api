@@ -1,17 +1,61 @@
-const { prisma } = require('../lib/prisma');
+const { getPrismaClient } = require('../lib/prisma');
+const prisma = getPrismaClient();
 
 const salesController = {
   createSale: async (req, res) => {
     try {
-      const { productId, quantity, unitPrice, total, clientId } = req.body;
+      // Validate request body
+      if (!req.body.sale) {
+        return res.status(400).json({ error: 'Sale data is required' });
+      }
+
+      const { productId, quantity, unitPrice, total, clientId } = req.body.sale;
       
+      // Validate required fields
+      if (!productId) return res.status(400).json({ error: 'Product ID is required' });
+      if (!quantity) return res.status(400).json({ error: 'Quantity is required' });
+      if (!unitPrice) return res.status(400).json({ error: 'Unit price is required' });
+      if (!total) return res.status(400).json({ error: 'Total is required' });
+      if (!req.user?.id) return res.status(401).json({ error: 'User authentication required' });
+
+      // Log the incoming request for debugging
+      console.log('Creating sale with data:', {
+        productId,
+        quantity,
+        unitPrice,
+        total,
+        clientId,
+        createdBy: req.user.id
+      });
+
+      // Check if product exists
+      const product = await prisma.product.findUnique({
+        where: { id: productId }
+      });
+
+      if (!product) {
+        return res.status(404).json({ error: 'Product not found' });
+      }
+
+      // Check if client exists if clientId is provided
+      if (clientId) {
+        const client = await prisma.clients.findUnique({
+          where: { id: clientId }
+        });
+
+        if (!client) {
+          return res.status(404).json({ error: 'Client not found' });
+        }
+      }
+
+      // Create the sale
       const sale = await prisma.sale.create({
         data: {
           productId,
           quantity,
           unitPrice,
           total,
-          clientId,
+          clientId: clientId || null,
           createdBy: req.user.id,
           status: 'pending',
           isLocked: false,
@@ -22,14 +66,21 @@ const salesController = {
         },
       });
 
+      console.log('Sale created successfully:', sale);
       res.status(201).json(sale);
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      console.error('Error creating sale:', error);
+      res.status(500).json({ 
+        error: 'Failed to create sale',
+        details: error.message 
+      });
     }
   },
 
   getSales: async (req, res) => {
     try {
+      console.log('Fetching sales for user:', req.user);
+      
       const sales = await prisma.sale.findMany({
         include: {
           product: true,
@@ -40,9 +91,14 @@ const salesController = {
         },
       });
 
+      console.log('Successfully fetched sales:', sales.length);
       res.json(sales);
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      console.error('Error in getSales:', error);
+      res.status(500).json({ 
+        error: 'Failed to fetch sales',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
     }
   },
 
@@ -148,6 +204,51 @@ const salesController = {
           client: true,
         },
       });
+
+      res.json(updatedSale);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+
+  requestVoid: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { reason } = req.body;
+
+      // Find the sale
+      const sale = await prisma.sale.findUnique({
+        where: { id: parseInt(id) },
+        include: {
+          product: true,
+          client: true,
+        },
+      });
+
+      if (!sale) {
+        return res.status(404).json({ error: 'Sale not found' });
+      }
+
+      // Check if sale is already voided or has a pending request
+      if (sale.voidStatus === 'approved' || sale.voidRequest) {
+        return res.status(400).json({ error: 'Sale already has a void request or is voided' });
+      }
+
+      // Update sale with void request
+      const updatedSale = await prisma.sale.update({
+        where: { id: parseInt(id) },
+        data: {
+          voidRequest: true,
+          voidStatus: 'pending',
+        },
+        include: {
+          product: true,
+          client: true,
+        },
+      });
+
+      // Here you could add logic to notify admins about the void request
+      // For example, send an email or create a notification
 
       res.json(updatedSale);
     } catch (error) {
