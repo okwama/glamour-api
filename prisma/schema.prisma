@@ -61,10 +61,9 @@ model Regions {
   status    Int?    @default(0)
   countryId Int
   country   Country @relation(fields: [countryId], references: [id])
-
+  Stores Stores[]
   @@unique([name, countryId])
   @@index([countryId], map: "Regions_countryId_fkey")
-  Stores Stores[]
 }
 
 model Country {
@@ -423,11 +422,12 @@ model Sale {
   createdBy   Int
   isLocked    Boolean   @default(false)
   status      String    @default("pending")
-  product     Product   @relation(fields: [productId], references: [id])
-  client      Clients?  @relation(fields: [clientId], references: [id])
-  creator     SalesRep  @relation(fields: [createdBy], references: [id])
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  client      Clients?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  creator     SalesRep  @relation(fields: [createdBy], references: [id], onDelete: Cascade)
 
   @@index([productId])
   @@index([clientId])
   @@index([createdBy])
+  @@map("sales")
 }
