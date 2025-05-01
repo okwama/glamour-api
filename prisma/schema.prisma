@@ -1,3 +1,4 @@
+// This is the schema for the Glamour Queen app
 generator client {
   provider = "prisma-client-js"
 }
@@ -349,6 +350,8 @@ model Report {
   @@index([journeyPlanId], map: "Report_journeyPlanId_fkey")
   @@index([orderId], map: "Report_orderId_fkey")
   @@index([userId], map: "Report_userId_fkey")
+  ProductReturn ProductReturn[]
+  ProductsSample ProductsSample[]
 }
 
 model FeedbackReport {
@@ -374,7 +377,24 @@ model VisibilityReport {
   createdAt DateTime @default(now())
   report    Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
 }
+model ProductReturn {
+  id          Int     @id @default(autoincrement())
+  reportId    Int     @unique
+  productName String?
+  quantity    Int?
+  reason      String?
+  imageUrl    String?
+  report      Report  @relation(fields: [reportId], references: [id])
+}
 
+model ProductsSample {
+  id          Int     @id @default(autoincrement())
+  reportId    Int     @unique
+  productName String?
+  quantity    Int?
+  reason      String?
+  report      Report  @relation(fields: [reportId], references: [id])
+}
 model Leave {
   id         Int      @id @default(autoincrement())
   userId     Int
@@ -407,8 +427,11 @@ model Outlet {
 enum ReportType {
   PRODUCT_AVAILABILITY
   VISIBILITY_ACTIVITY
+  PRODUCT_SAMPLE
+  PRODUCT_RETURN
   FEEDBACK
 }
+
 
 model Sale {
   id          Int       @id @default(autoincrement())
